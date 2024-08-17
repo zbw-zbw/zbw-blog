@@ -1,0 +1,322 @@
+---
+title: '彻底搞懂JavaScript中的this关键字'
+date: '2021-04-06'
+tags: ['JavaScript']
+summary: '本文对JavaScript中的this关键字进行全方位的解析，看完本篇文章，希望读者们能够完全理解this的绑定问题。'
+---
+
+本文对JavaScript中的this关键字进行全方位的解析，看完本篇文章，希望读者们能够完全理解this的绑定问题。
+
+开篇：对于那些没有投入时间去学习this机制的JavaScript开发者来说，this的绑定是一件令人困惑的事。（**包括曾经的自己**）。
+
+误区：学习this的第一步是明白**this既不指向函数本身也不指向函数的词法作用域**，你是否被类似这样的解释所误导？但其实这种说法都是错误的。
+
+概括：**this实际是在函数被调用时发生的绑定，它所指向的位置完全取决于函数被调用的位置。**
+
+## 一、调用位置
+
+在理解this的绑定过程之前，首先要理解调用位置：**调用位置就是函数在代码中被调用的位置（而不是声明的位置）。**
+
+所以说，寻找调用位置就是寻找“函数被调用的位置”，这里最重要的点是要分析**调用栈（存放当前正在执行的函数的位置）**。
+
+什么是调用栈和调用位置？
+
+关系：**调用位置就在当前正在执行的函数（调用栈）的前一个位置**。
+
+```js
+function func1() {
+  // 当前调用栈：func1
+  // 当前调用位置是全局作用域（调用栈的前一个位置）
+  console.log('func1')
+  func2() // 这里是：func2的调用位置
+}
+
+function func2() {
+  // 当前调用栈：func1 -> func2
+  // 当前调用位置是在func1（调用栈的前一个位置）
+  console.log('func2')
+  func3() // 这里是：func3的调用位置
+}
+
+function func3() {
+  // 当前调用栈：func1 -> func2 -> func3
+  // 当前调用位置是在func2（调用栈的前一个位置）
+  console.log('func3')
+}
+
+func1() // 这里是：func1的调用位置
+```
+
+关注点：我们是如何从调用栈中分析出真正的调用位置的，**因为这决定了this的绑定**。
+
+## 二、绑定规则
+
+- 默认绑定
+
+最常用的函数调用类型：**独立函数调用**
+
+```js
+function getName() {
+  console.log(this.name)
+}
+
+var name = 'kyrie'
+
+getName() // 'kyrie'
+```
+
+当调用getName()时，this.name拿到了全局对象的name。因为getName()是直接调用的，不带任何修饰符，使用的是**默认绑定**，因此this指向全局对象（**非严格模式**）。
+
+如果使用**严格模式**（'strict mode'）呢？
+
+```js
+function getName() {
+  'use strict'
+
+  console.log(this.name)
+}
+
+var name = 'kyrie'
+
+getName() // 'TypeError: this is undefined'
+```
+
+那么全局对象无法使用默认绑定，**因此this会绑定到undefined**。
+
+- 隐式绑定
+
+调用位置是否有**上下文对象**
+
+```js
+function getName() {
+  console.log(this.name)
+}
+
+var person = {
+  name: 'kyrie',
+  getName: getName,
+}
+
+person.getName() // 'kyrie'
+```
+
+当getName()被调用时，它的落脚点指向person对象，当函数引用有**上下文对象**时，**隐式绑定**会把函数调用中的this绑定到这个上下文对象，因此调用getName()时this被绑定到person，因此this.name跟person.name是一样的
+
+常见问题：隐式丢失？
+
+```js
+function getName() {
+  console.log(this.name)
+}
+
+var person = {
+  name: 'kyrie',
+  getName: getName,
+}
+
+var getName2 = person.getName() // 函数别名
+var name = 'wen' // name是全局对象的属性
+getName2() // 'wen' 这里拿到的是全局对象的name
+```
+
+解释：虽然getName2是person.getName的一个**函数引用**，但它引用的getName函数的本身，因此getName2()调用时不带任何修饰符，使用的是**默认绑定**，因此this绑定了**全局对象**。
+
+- 显式绑定
+
+使用**call()** / **apply()** / **bind()** 指定this的绑定对象
+
+```js
+function getName() {
+  console.log(this.name)
+}
+
+var person = {
+  name: 'kyrie',
+}
+
+getName.call(person) // 'kyrie'
+
+getName.apply(person) // 'kyrie'
+```
+
+通过getName.call()/ getName.apply() 调用强制把它的this绑定到person上。
+
+- new绑定
+
+所有函数都可以用new来调用，这种函数调用称为**构造函数调用**。
+
+**重点**：实际上并不存在所谓的“构造函数”，只有对于**函数的“构造调用”**。
+
+##### 使用new来调用函数，或者说发生构造函数调用时，会自动执行以下的四步操作：
+
+1. 创建（或者构造）一个**新的对象**
+
+2. 这个新对象会被执行[[原型]]连接（暂时忽略，属于原型内容，后面再介绍它）
+
+3. 这个新对象会**绑定到函数调用的this**
+
+4. 如果函数没有返回其他对象，则new表达式中的函数会**自动返回这个新的对象**
+
+```js
+function setName(name) {
+  this.name = name
+}
+
+var person = new setName('kyrie')
+console.log(person.name) // 'kyrie'
+```
+
+使用new调用setName()时，会创建**一个新对象**并把这个新对象**绑定到setName()调用的this上**，并把这个对象**返回**。
+
+## 三、优先级
+
+毫无疑问，默认绑定的优先级是四条规则中最低的，所以暂不考虑它。
+
+1. 隐式绑定和显式绑定哪个优先级高？
+
+```js
+function getName() {
+  console.log(this.name)
+}
+
+var p1 = {
+  name: 'kyrie',
+  getName: getName,
+}
+
+var p2 = {
+  name: 'wen',
+  getName: getName,
+}
+
+p1.getName() // 'kyrie'
+
+p2.getName() // 'wen'
+
+p1.getName.call(p2) // 'wen'
+
+p2.getName.call(p1) // 'kyrie'
+```
+
+结果，**显式绑定的优先级比隐式绑定高。**
+
+2. 隐式绑定和new绑定哪个优先级高？
+
+```js
+function setName(name) {
+  this.name = name
+}
+
+var p1 = {
+  setName: setName,
+}
+
+var p2 = {}
+
+p1.setName('kyrie')
+console.log(p1.name) // 'kyrie'
+
+p1.setName.call(p2, 'wen')
+console.log(p2.name) // 'wen'
+
+var p3 = new p1.setName('zbw')
+console.log(p1.name) // 'kyrie'
+console.log(p3.name) // 'zbw'
+```
+
+结果，**new绑定的优先级比隐式绑定高**
+
+3. 显式绑定和new绑定的哪个优先级高？
+
+```js
+function setName(name) {
+  this.name = name
+}
+
+var p1 = {}
+
+// bind会返回一个新的函数
+var setP1Name = setName.bind(p1)
+setP1Name('kyrie')
+console.log(p1.name) // 'kyrie'
+
+var p2 = new setP1Name('wen')
+console.log(p1.name) // 'kyrie'
+console.log(p2.name) // 'wen'
+```
+
+结果，**new绑定的优先级比显示绑定高**
+
+综上，优先级的正确排序：
+
+**从高到低： new > 显示 > 隐式 > 默认**
+
+- 判断this的指向
+
+现在我们可以根据优先级来判断函数在某个位置调用this的指向。
+
+1. 函数是否通过new来调用（new绑定）？如果是，则this指向新创建的对象
+
+```js
+var p1 = new Person()
+```
+
+2. 函数是否通过call/apply/bind调用（显式绑定）？如果是，则this指向第一个参数
+
+```js
+var p1 = setName.call(p2)
+```
+
+3. 函数是否在某个上下文对象中调用（隐式绑定）？如果是，则this指向该上下文对象
+
+```js
+var p2 = p1.setName()
+```
+
+4. 如果以上三个条件都不满足，则使用默认绑定。如果是在严格模式中，this指向undefined，否则指向全局对象。
+
+```js
+var p1 = setName()
+```
+
+## 四、箭头函数的this
+
+以上上提到判断this指向的四条规则包含所有正常的函数，除了ES6中的**箭头函数**。
+
+概括：箭头函数不像普通函数那样使用function关键字定义，而是用 **“胖箭头” => 定义** 。而且箭头函数并不适用以上的四条规则，它的this绑定完全是根据 **外层作用域（函数或者全局）** 来决定的。
+
+```js
+function getName() {
+  // 箭头函数的this指向外层作用域
+  return (name) => {
+    console.log(this.name)
+  }
+}
+
+var p1 = {
+  name: 'kyrie',
+}
+
+var p2 = {
+  name: 'wen',
+}
+
+var func = getName.call(p1)
+func.call(p2) // 'kyrie'
+```
+
+getName()内部创建的箭头函数会**捕获调用时外层作用域（getName）的this**，由于getName的this通过显示绑定到p1上，所以getName里创建的箭头函数也会指向p1，最重要的一点：**箭头函数的this无法被修改**（即使是**优先级最高的new绑定也不行**）
+
+## 总结
+
+要判断一个运行中的函数的this绑定，需要找到该函数的调用位置（结合调用栈），接着根据优先级得出的四条规则来判断this的绑定对象。
+
+1. 函数由new调用？绑定到新创建的对象
+
+2. 由call/apply/bind调用？绑定到指定对象
+
+3. 由上下文对象调用？绑定到上下文对象
+
+4. 默认：严格模式下绑定到undefined，否则绑定到全局对象
+
+ES6的箭头函数不适用以上四条规则，而是**根据当前的词法作用域来决定this绑定**，也就是说，箭头函数会**继承外层函数调用的this绑定**（无论绑定到什么），而且**箭头函数的this绑定无法被修改**。

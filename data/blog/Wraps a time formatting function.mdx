@@ -1,0 +1,57 @@
+---
+title: '封装一个时间格式化函数'
+date: '2021-03-13'
+tags: ['JavaScript']
+summary: '封装一个时间格式化函数，支持时间戳/中国标准时间转为y-m-d h:m:s(由第二个参数决定)'
+---
+
+### 日常开发中，经常会遇到后端返回的时间不是我们想要的格式，有两种选择：
+
+**第一种**：引入第三方库（[moment.js](https://momentjs.com/) / [day.js](https://day.js.org/zh-CN/)）
+
+**第二种**：自己封装一个时间格式化函数
+
+**看完这篇文章，你也可以拥有自己的时间格式化函数**
+
+### **直接上代码**
+
+```javascript
+/**
+ * @description: 时间戳/中国标准时间转为y-m-d h:m:s(由第二个参数决定)
+ * @param {Date | Number} time	时间戳或中国标准时间
+ * @param {Number} length 如：10代表转换为YYYY-MM-DD
+ * @return {Date}	返回日期格式
+ */
+function format(time, length = 19) {
+  let date
+  // 传入的是时间戳
+  if (typeof time === 'number' && !isNaN(time)) {
+    let timeLength = time.toString().length
+    // 10位时间戳
+    if (timeLength === 10) {
+      date = new Date(time * 1000 + 8 * 3600 * 1000)
+    } else if (timeLength === 13) {
+      // 13位时间戳
+      date = new Date(time + 8 * 3600 * 1000)
+    } else {
+      console.log('请传入10位或13位的时间戳！')
+      return
+    }
+  } else {
+    // 传入的是中国标准时间
+    date = new Date(Date.parse(time) + 8 * 3600 * 1000)
+  }
+  // 校验传入的时间格式
+  if (!date.toJSON()) {
+    console.log('传入的时间格式不正确！')
+    return
+  }
+  return date.toJSON().substr(0, length).replace('T', ' ').replace(/-/g, '-')
+}
+```
+
+### 补充：检测一个变量是否为有效数字
+
+1、Object.prototype.toString.call(xxx) === '[object Number]'
+
+2、typeof 1 === 'number' && !isNaN(xxx)

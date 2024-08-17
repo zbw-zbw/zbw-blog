@@ -1,0 +1,96 @@
+---
+title: 'useEffect进阶指南（上）'
+date: '2021-03-21'
+tags: ['React']
+summary: 'useEffect进阶指南（上）'
+---
+
+## 1. 每次渲染都有独立的状态（State）
+
+```js
+function Demo() {
+  const initCount = 0
+  const [count, setCount] = useState(initCount)
+
+  return (
+    <div>
+      <h2>{count}</h2>
+      <button onClick={() => setCount(count + 1)}>count++</button>
+    </div>
+  )
+}
+```
+
+`每当用户点击一次按钮 都会重新触发render函数，每次render拿到的都是独立的状态`
+
+`因为我们生命count的值时使用const，所以每次渲染拿到的count值是一个独立的常量。`
+
+## 2. 每次渲染都有不同且独立的函数（Effect函数）
+
+```js
+function Demo() {
+  const initCount = 0
+  const [count, setCount] = useState(initCount)
+
+  // 假设在1s内多次点击按钮 这里打印的count值是什么？
+  useEffect(() => {
+    setTimeout(() => {
+      console.log(count) // 这里打印的会是当前这一次的count值，并不是最新的count值
+    }, 1000)
+  })
+
+  return (
+    <div>
+      <h2>{count}</h2>
+      <button onClick={() => setCount(count + 1)}>count++</button>
+    </div>
+  )
+}
+```
+
+`每次count值改变，都会触发render，组件重新渲染，所以每次都会生成对应的useEffect函数`
+
+`而且我们发现每次打印count的值拿到的都是当前轮次的count值（并不是最新的count）`
+
+## 3. useEffect到底是怎样拿到最新的状态值的？
+
+`我们知道每次渲染都会触发render，每次更新就会生成一个新的Effect函数，并且每一个Effect函数里面都有独立的State，且只能访问自己本次更新的State。`
+
+`所以用上面的例子，得出的结论就是：count值其实不是在同一个Effect函数里面发生改变，而是每一次的组件更新，都会生成一个维护着本次更新的Effect函数，在这个最新的Effect函数里就可以访问到最新的count值。`
+
+## 4. useEffect返回的函数是如何进行清理工作的？
+
+```js
+function Demo() {
+  const initCount = 0
+  const [count, setCount] = useState(initCount)
+
+  useEffect(() => {
+    let timer = setTimeout(() => {
+      console.log(count)
+    }, 1000)
+
+    // 清理工作
+    return () => {
+      clearTimeout(timer)
+    }
+  })
+
+  return (
+    <div>
+      <h2>{count}</h2>
+      <button onClick={() => setCount(count + 1)}>count++</button>
+    </div>
+  )
+}
+```
+
+`假设用户点击了两次次按钮 当第一次点击的时候 count + 1 = 1，然后执行clearTimout清除本次的定时器？ 接着继续count + 1 = 2 然后执行clearTimeout清除本次的定时器？`
+
+`正确的顺序应该是：当第一次点击 count + 1 = 1，然后clearTimeout会被延迟执行，等到第二次点击的时候 count + 1 = 2 再执行上一次的clearTimeout 然后以此类推...问题来了 不是说effect函数只能访问本次的State吗？那它怎么拿到上一次的clearTimeout并执行的？`
+
+`其实很简单，就是React会帮你记住每次effect函数的State（包括清除函数），它确实是只能读取本次更新的State，只不过是延迟执行了（把清除函数的执行时机放在DOM渲染完成后，在下一次render触发之前）`
+
+**剩下的内容下期见吧，我累了，现在要去吃麦当劳补充一下能量...**
+
+`下期预告：useEffect的第二个参数详细解析及使用，在开发中合理使用依赖（避免死循环、性能优化...）`

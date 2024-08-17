@@ -1,0 +1,356 @@
+---
+title: '深入理解JavaScript中的array、string、number'
+date: '2021-04-12'
+tags: ['JavaScript']
+summary: '深入理解JavaScript中的array、string、number'
+---
+
+## 数组(array)
+
+JavaScript 中，数组可以容纳任何类型的值
+
+- 多维数组
+
+```js
+var a = [1, '2', [3]]
+
+a.length // 3
+a[0] // 1
+a[2][0] // 3
+```
+
+**注意：使用 delete 可以删除数组中的元素，但不会改变数组的 length 属性**。
+
+- 稀疏数组
+
+- 数组的索引可以是数字，可以是字符串
+
+```js
+var a = []
+a[0] = 1
+a['demo'] = 2
+
+a.length // 思考一下：这里为什么是1，不是2
+a['demo'] // 2
+a.demo // 2
+```
+
+**注意：数组中的字符串键值和属性不会计算在数组的长度中。**
+
+```js
+var a = []
+a['11'] = 23 // 11会被当成索引，不会存储为key
+
+a.length // 12
+```
+
+**注意：如果数组的索引是能够被转为数字的话，它会被当成数字索引。**
+
+- 类数组
+
+一组通过数字索引的值（如 arguments，DOM 元素列表...）
+
+类数组转换为数组（slice）
+
+```js
+function demo() {
+  var args = arguments
+  var arr = Array.prototype.slice.call(args)
+  arr.push('zbw')
+  console.log(arr)
+}
+
+demo('kyrie', 'wen') // ['kyrie', 'wen', 'zbw']
+```
+
+ES6 的 Array.from(...)也可以实现转换
+
+```js
+var arr = Array.from(arguments)
+```
+
+## 字符串(string)
+
+字符串经常被当成字符串数组。
+
+```js
+var a = 'wen'
+var b = ['w', 'e', 'n']
+```
+
+字符串也是类数组，也有 length 属性，也可以调用数组的方法（indexof，concat...）
+
+```js
+var a = 'wen'
+var b = ['w', 'e', 'n']
+
+a.indexof('e') // 1
+b.indexof('e') // 1
+
+var c = a.concat('wen') // 'wenwen'
+var d = b.concat(['w', 'e', 'n']) // ['w', 'e', 'n', 'w', 'e', 'n']
+```
+
+- 字符串和数组的区别
+
+字符串是不可变的，而数组是可变的。
+
+字符串不可变是指它的成员函数不会改变原始值，而是创建一个新的字符串。
+
+数组的成员函数是在原始值上进行操作。
+
+```js
+var a = 'wen'
+
+b = a.toUpperCase()
+a // 'wen'
+b // 'WEN'
+a === b // false
+```
+
+另一个不同点是字符串反转（面试题）。数组有一个成员函数 reverse（字符串没有）
+
+```js
+// 字符串反转
+var a = 'kyrie'
+
+var res = a.split().reverse().join()
+console.log(res) // 'eiryk'
+```
+
+字符串反转：先将字符串转为数组（spilit），然后将数组反转（reverse），最后再转回字符串（join）。
+
+## 数字（number）
+
+number：唯一的数值类型（整数和小数）
+
+其实，JavaScript 没有真正意义上的整数，怎么理解？
+
+整数就是没有小数的十进制数，JavaScript 中，11.0 等同于 11
+
+```js
+var num1 = 11
+var num2 = 11.23
+
+// 数字前、后的0都可省略
+var num3 = 0.11
+var num4 = 0.11
+
+var num5 = 11.0
+var num6 = 11 // 一般不这么写，代码可读性直接 42
+```
+
+- 指定小数部分的显示位数（toFixed）
+
+```js
+var num = 11.23
+
+num.toFixed(0) // 11
+num.toFixed(1) // 11.2
+num.toFixed(2) // 11.23
+num.toFixed(3) // 11.230
+```
+
+**注意：如果指定的小数部分的显示位数大于实际位数，会用 0 补齐。**
+
+- toFixed 也适用于数字常量
+
+```js
+// 报错
+11.toFixed(2)
+
+// 不会报错 正常
+(11).toFixed(2) // 11.00
+0.11.toFixed(1) // 0.1
+11 .toFixed(3) // 11.000 不建议 多个空格很奇怪
+11..toFixed(3) // 11.000 不建议 2个.也很奇怪
+```
+
+**注意：42.toFixed(2)是无效语法，因为.会被当作常量 42.的一部分，所以没有属性访问运算符来调用 toFixed 方法。（所以再加一个.就好了）**
+
+- 较小的数值
+
+二进制浮点数最大的问题（经典面试题）
+
+```js
+0.1 + 0.2 === 0.3 // false  what???
+```
+
+从数学角度来说，上面的条件判断应该为 true，可结果为什么是 false 呢？
+
+简单来说，**二进制浮点数中的 0.1 和 0.2 并不是十分精确，它们相加的结果并不是刚好等于
+0.3，而是一个比较接近的数字 0.30000000000000004**，所以条件判断结果为 false。
+
+怎样判断 0.1 + 0.2 和 0.3 是否相等？
+
+最常见的方法是**设置一个误差范围值，通常称为“机器精度”**。对于 JavaScript 来说，这个值通常为 2^-52
+
+从 ES6 开始，该值定义在 Number.EPSILON 中，直接使用：
+
+```js
+function numToEqual(num1, num2) {
+  return Math.abs(num1 - num2) < Number.EPSILON
+}
+
+var a = 0.1 + 0.2
+var b = 0.3
+
+numToEqual(a, b) // true
+```
+
+## 特殊数值
+
+- 不是值的值
+
+undefined 类型只有一个值，undefined，null 类型也是只有一个值，null，它们的名称既是类型也是值。
+
+- nul 和 undefined 的区别
+
+  - null 曾经赋过值，但目前没有值
+  - undefined 从未赋值
+
+null 是一个关键字，不是标识符，不能用作变量名称。
+
+undefined 是标识符，可当作变量来使用
+
+```js
+var null = 11 // 非法
+
+var undefined = 11 // 合法，但千万别这样做
+```
+
+**注意：永远不要重新定义 undefined**
+
+- void 运算符
+
+undefined 是一个内置标识符（除非被重新定义），它的值为 undefined，
+通过 void 运算符即可得到该值。
+
+```js
+var a = 11
+
+console.log(void a, a) // undefined  11
+```
+
+void 并不改变表达式的结果，只是让表达式不返回值，可以用 void 0 来获得 undefined，void 0 和 void 1， void ...并没有实质上的区别，都是 undefined。
+
+```js
+function demo() {
+  if (error) {
+    console.log(error)
+    return void dosomething(error)
+  }
+}
+```
+
+为了让 if 语句停止向下运行，所以使用 void 表达式，上面例子是等同于：
+
+```js
+if (error) {
+  dosomething(error)
+  return
+}
+```
+
+- 特殊的数字（NaN）（not a number）
+
+通过数学运算符（+、-、x、/）得到的如果不是一个有效数字，就会返回 NaN。
+
+```js
+var a = 11 / 'kyrie' // NaN
+typeof a // 'number'
+```
+
+可以看到，NaN 也是数字类型。
+
+NaN 是一个“警戒值”，用于指出数字类型的错误情况，即“执行数学运算没有成功”。
+
+- 检测 NaN
+
+```js
+var a = 11 / 'kyrie'
+
+a == NaN // false
+a === NaN // false
+```
+
+**注意：NaN 是一个特殊值，它不等于自身，唯一一个非自反（自反，x === x 不成立）的值。**
+
+所以，我们可以利用 NaN 不等于自身的特性来检测一个变量的值是否为 NaN
+
+```js
+function isNaN(n) {
+  return n !== n
+}
+var a = 11 / 'kyrie'
+isNaN(a) // true
+```
+
+- 无穷数
+
+```js
+var a = 11 / 0 // Infinity(正无穷大)
+var a = -11 / 0 // -Infinity(负无穷大)
+```
+
+**注意：Infinity / Infinity 结果为 NaN， 正整数除以 Infinity 结果为 0**
+
+- 零值
+
+JavaScript 中有一个常规的 0 和一个-0
+
+```js
+var a = 0 / -11 // -0
+var b = 0 * 11 // 0
+```
+
+加减法不会得到-0
+
+**注意：根据规范，对-0 进行字符串化（stringify）会返回'0'，对'-0'转换为数字（Number/parse）是 -0**
+
+```js
+var a = 0 / -11
+JSON.stringify(a) // '0'
+
+var b = '-0'
+JSON.parse(b) // -0
+```
+
+**JSON.stringify(-0)返回 0，JSON.parse('-0')返回-0**。
+
+- 如何区分 0 和-0
+
+```js
+0 === -0 // true
+
+function isNegZero(n) {
+  n = Number(n)
+  return n === 0 && 1 / n === -Infinity
+}
+
+isNegZero(-0) // true
+isNegZero(0) // false
+```
+
+- 为什么需要-0
+
+有些时候，我们需要用数字的符号位(+ / -)来代表某些信息（比如移动方向），如果一个值为 0 的变量没有符号位（即+ / -），那么会丢失方向信息。所以这也是为什么需要-0 的原因。
+
+- ES6 的工具函数：Object.is()
+
+```js
+var a = 11 / 'kyrie'
+var b = -11 / 0
+
+Object.is(a, NaN) // true
+Object.is(b, -0) // true
+Object.is(b, 0) // false
+```
+
+## 总结
+
+1. JavaScript 中的数组是通过数字索引的一组任意类型的值。
+
+2. null 类型只有一个值 null，undefined 类型也只有一个值 undefined。所有变量在未赋值前默认都是 undefined，void 运算符返回 undefined。
+
+3. 数字类型有几个特殊值，包括 NaN（not a number）、Ifinity、-Infinity 和-0。

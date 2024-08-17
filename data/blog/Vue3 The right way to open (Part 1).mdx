@@ -1,0 +1,222 @@
+---
+title: 'Vue3正确的打开方式（上）'
+date: '2021-03-15'
+tags: ['Vue']
+summary: 'Vue3正确的打开方式（上）'
+---
+
+## 1. Vue3 定义响应式数据（ref/reactive）
+
+```js
+import { reactive, toRefs } from 'vue'
+export default {
+  setup() {
+    const data = reactive({
+      title: 'Hello zbw',
+      todoList: [
+        {
+          id: 1,
+          name: 'kyrie',
+          age: 18,
+        },
+        {
+          id: 2,
+          name: 'wen',
+          age: 18,
+        },
+      ],
+    })
+
+    // 1、toRefs：普通对象转换为响应式对象
+    const refData = toRefs(data)
+
+    ///2、或者你可以使用ref定义
+    const name = ref('kyrie')
+
+    // 使用ref定义的数据 取的时候要取它的value
+    conosle.log(name.value) // 'kyrie'
+
+    // 修改的时候也一样
+    name.value = 'wen'
+
+    return {
+      ...refData,
+    }
+  },
+}
+```
+
+## 2. Vue3 定义和使用全局属性（方法）
+
+### vue.prototype 替换成 config.globalProperties
+
+```
+// main.js 全局定义
+
+import { createApp } from "vue";
+import App from "./App.vue";
+
+const app = createApp(App);
+
+// 定义debounce方法
+const debounce = (fn, delay) => {
+  let timer;
+  return (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+};
+
+//把debounce方法挂载到原型上
+app.config.globalProperties.$debounce = debounce;
+
+// .vue 组件中使用
+
+import { getCurrentInstance } from 'vue'
+
+// 通过getCurrentInstance拿到当前实例 并取出debounce
+const { proxy: { debounce } } = getCurrentInstance()
+
+// 可在组件内使用
+onMounted(() => {
+  data.onSubmit = debounce(data.onSubmit, 500)
+})
+```
+
+## 3. Vue3 自定义指令（全局）
+
+```
+import { createApp } from "vue";
+import App from "./App.vue";
+
+const app = createApp(App);
+
+// 全局注册一个高亮显示文本的指令
+app.directive("highlight", {
+  // vue3修改了钩子的名字，更加语义化
+  beforeMount(el, binding, node) {
+    el.style.color = binding.value;
+  },
+});
+
+// .vue 组件内使用自定义指令
+<p v-highlight="pColor">高亮显示此文本为红色</p>
+
+<i v-highlight="iColor">高亮显示此文本为绿色</i>
+
+setup() {
+  let pColor = ref('red')
+  let iColor = ref('green')
+
+  return {
+    pColor,
+    iColor
+  }
+}
+```
+
+## 4. Vue3 父子通信（$emit的改动）
+
+### vue3新增了$emit的options（配置）emits: [] / {} 可用于对传给父组件的值进行校验
+
+```
+// Child组件
+
+// 注意：这里$emit的事件名不要写驼峰形式，html无法解析驼峰
+<button @click="$emit('say-hello', { msg: 'Hello', count: 1 })">say Hello</button>
+
+export default {
+  // 这里可以写成数组形式，跟vue2一样，无参数校验
+  // emits: ['say-hello']
+  // 如果需要对传递给父组件的值进行校验，可以写成对象形式
+  emits: {
+    // payload为传递给父组件的值
+    'say-hello': payload => {
+      if (payload.msg) {
+        console.log('参数校验通过！')
+        return true
+      } else {
+        console.log('参数缺少msg')
+        return false
+      }
+    }
+  }
+}
+
+// Parent组件
+<Child @sayHello="sayHi"/>
+
+setup() {
+  sayHi(val) {
+    console.log(val, '子组件传过来的值')
+  }
+}
+```
+
+## 5. Vue3 兄弟组件通信（mitt）
+
+```
+// emit.js
+import mitt from "mitt";
+export const emitter = mitt();
+
+// Child1.vue
+import { emitter } from "../emit";
+
+//第一个参数：事件名，第二个参数：传递的值
+emitter.emit('changeTitle', '新标题')
+
+// Child2.vue
+import { emitter } from "../emit";
+
+// 组件内部的值
+const data = reactive({
+  title: "旧标题"
+})
+
+//value可以接收到Child1传过来的值
+emitter.on('changeTitle', (value) => {
+  // 修改组件内部title
+  data.title = value
+})
+
+// 如果发射多个事件，可以使用这种写法
+// * 代表监听全部事件 type：发射的事件名，val为传过来的值
+emitter.on("*", (type, val) => {
+  switch (type) {
+    case "increment":
+      data.count += val;
+      break;
+    case "decrement":
+      data.count -= val;
+      break;
+    case "changeTitle":
+      data.title = val;
+      break;
+    default:
+      break;
+  }
+});
+
+// 注意：如果你不想定义emit.js 可以将emitter挂载到原型上
+```
+
+## 6. Provide / Inject的使用（跟vue2类似）
+
+```
+// main.js
+
+app.provide("userInfo", {
+  username: "kyrie",
+  password: "123456"
+});
+
+// .vue 组件内使用
+inject: {
+    myUserInfo: {
+      from: 'userInfo' // { username: 'kyrie', password: '123456'}
+    }
+  },
+```

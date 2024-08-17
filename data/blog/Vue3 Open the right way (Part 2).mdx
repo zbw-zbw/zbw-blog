@@ -1,0 +1,341 @@
+---
+title: 'Vue3正确的打开方式（下）'
+date: '2021-03-16'
+tags: ['Vue']
+summary: 'Vue3正确的打开方式（下）'
+---
+
+## 1. 计算属性（computed）
+
+### computed 的返回值是一个响应式的 ref 对象
+
+```js
+import { ref, computed } from 'vue'
+
+const count = ref(10)
+
+// 写法一：默认返回getter函数 返回值为一个只读的ref对象
+const doubleCount = computed(() => count.value * 2)
+
+// 因为返回值为ref对象 取值需要拿它的value
+console.log(doubleCount.value) // 20
+
+// 注意：这里控制台会报警告，因为我们只设置了getter函数
+doubleCount.value = 20 // warn：readonly（只读）属性 不可修改
+
+// 写法二：带有getter和setter函数
+const doubleCount = computed({
+  get: () => count.value * 2,
+  set: (val) => (count.value = val - 2),
+})
+
+console.log(doubleCount.value) // 20
+
+//  不会报警告，因为我们手动设置了setter函数
+doubleCount.value = 10 // 修改doubleCount的值 触发set函数
+
+// 所以count的值为 10 - 2 = 8
+console.log(count.value) // 8
+```
+
+## 2. 响应式侦听（watch）
+
+### ①. 监听基本数据类型：
+
+```
+import { ref, watch, reactive } from 'vue'
+
+setup() {
+
+  // 写法一：监听一个普通的值
+  const data = reactive({ count: 100 })
+  // 第一个参数写成函数
+  watch(() => data.count, (newVal, oldVal) => {
+    console.log(newVal, 'newVal')
+    console.log(oldVal, 'oldVal')
+  })
+
+  // 写法二：监听ref对象
+  const count = ref(100)
+  // 第一个参数写成函数
+  watch(() => count, (newVal, oldVal) => {
+    console.log(newVal, 'newVal')
+    console.log(oldVal, 'oldVal')
+  })
+
+  // 写法三：同时监听多个值
+  const num = ref(200)
+  // 第一个参数写成数组形式，代表要监听的值
+  watch([count, num], (newVals, oldVals) => {
+    // 这里打印的是一个数组 值分别对应：[count, num]
+    console.log(newVals, 'newVals')
+    console.log(oldVals, 'oldVals')
+  })
+
+  count.value = 300 // newVals: [300, 200]   oldVals: [100, 200]
+  num.value = 400   // newVals: [300, 400]   oldVals: [300, 200]
+}
+```
+
+### ②. 监听引用数据类型：
+
+```
+import { watch, reactive } from 'vue'
+
+setup() {
+  const list = reactive([1, 2, 3, 4, 5])
+  // 这里需要对引用数据类型进行拷贝
+  watch(() => [...list], (newVal, oldVal) => {
+    console.log(newVal, 'newVal')
+    console.log(oldVal, 'oldVal')
+  })
+
+  list.push(6) // newVal: [1, 2, 3, 4, 5, 6]  oldVal: [1, 2, 3, 4, 5]
+}
+```
+
+##### 不出意外，vue3 的 watch 同样支持 deep、immediate 属性，只是用法有所改变
+
+```
+const userInfo = reactive({
+  username: 'kyrie irving',
+  email: '123@qq.com',
+  like: {
+    isBasketball: true
+  }
+})
+
+// 传入一个对象作为第三个参数 可开启deep/immediate
+watch(() => userInfo, (newVal, oldVal) => {
+  console.log(newVal.like.isBasketall)
+  console.log(oldVal.like.isBasketall)
+}, { deep: true })
+
+// 修改状态深层属性的值
+userInfo.like.isBasketball = false // 打印日志: false, false
+```
+
+##### 看到日志输出两个 false 是不是觉得哪里不对劲？
+
+##### 注意：如果你想要在修改后的状态中拿到上一个状态里的值，需要深拷贝
+
+##### 原因：watch 的返回值是：当前状态（newVal）和上一个状态的引用（oldVal）
+
+```
+// 正确写法（对引用数据类型进行深拷贝）
+(这里使用vue官方推荐的lodash深拷贝方法，当然你也可以手写（手动狗头）
+import _ from 'lodash'
+
+watch(() => _.cloneDeep(userInfo), (newVal, oldVal) => {
+  console.log(newVal.like.isBasketall)
+  console.log(oldVal.like.isBasketall)
+})
+
+// 修改状态深层属性的值 这里就可以拿到上一个状态的值啦
+userInfo.like.isBasketball = false // 打印日志: false, true
+```
+
+## 3. 组合式 API（核心知识点）
+
+##### 假设我们要开发一个 todoList， 那么在 vue2 的选项式（options）API 中，代码大致长这样：
+
+```
+export default {
+  components: ['Header', 'List', 'Footer'],
+
+  props: {
+    item: {
+      type: Object,
+      required: true,
+      default: () => {},
+    }
+  },
+
+  data() {
+    return {
+      value: '',
+    }
+  },
+
+  computed: {
+    finallyValue() {}
+  },
+
+  methods: {
+    addTodo(data) {}
+  },
+
+  mounted() {
+    this.init()
+  }
+}
+```
+
+很明显可以看到，我们写的**代码被瓜分**到（data,computed, methods, mounted...）里面，当组件小的时候还好，但当我们开发一个**大型组件**的时候，就会发现我们的组件变得**难以维护**。
+
+不知道大家有没有这种体验：当我们的组件**代码行数太多**时，我们时常需要不断地**上下‘跳转’编译器**，找到相关的代码块去阅读或编写，这显然开发体验不是很好。
+
+要是有一种东西可以解决这种开发中由于**代码太过于碎片化**，而且**逻辑不好复用**的问题，是不是可以提高我们的**开发效率**？而这正是 vue3 推出**组合式 API**出现的原因。
+
+在[Vue3 正确的打开方式（上）](https://mp.weixin.qq.com/s/BnpqY8Y4ptEoARLOrz09Fg)里，我们已经用到组合式 API 了，定义响应式对象（ref, reactive）...
+
+补充一些关于**生命周期**和**props**的知识...
+
+##### 生命周期（vue3将不再需要：beforeCreate、created，原因看下文）
+
+```
+// vue3中为了性能，很多API（方法）都支持Tree Shaking
+// 所以需要从vue中显式导入，生命周期也不例外
+import {
+  onBeforeMount,      (对应beforeMount)
+  onMounted,          (对应mounted)
+  onBeforeUpdate,     (对应beforeUpdate)
+  onUpdated,          (对应updated)
+  onBeforeUnmount,    (对应beforeUnmount)
+  onUnmounted,        (对应unmounted)
+  onErrorCaptured,    (对应errorCaptured)   基本不用
+  onRenderTracked,    (对应renderTracked)   基本不用
+  onRenderTriggered   (对应renderTriggered) 基本不用
+} from 'vue'
+
+// 第一个参数props，第二个参数为上下文（包括slots，attrs，emit）
+setup(props, context) {
+
+  // 用法跟vue类似，不一样的地方在于它接受一个回调函数，在钩子被组件调用时执行
+  onMounted(() => {
+    console.log('mouted')
+  }),
+
+  // 其他的钩子类似，这里就不一一列举了
+  ...
+}
+
+```
+
+**tips**： vue3的setup是围绕**beforeCreate**和**created**生命钩子运行的，所以你不需要**显式地定义**这两个钩子函数，通俗易懂就是说**之前在这两个钩子里编写的代码**现在你都应该**编写在setup函数**中。
+
+#### props（响应式引用）
+
+```
+import { toRefs } from 'vue'
+
+// 接收跟vue2一样 可进行类型校验和默认值设置
+props: {
+  username: {
+    type: String,
+    default: ''
+  },
+  email: {
+    type: String,
+    default: ''
+  }
+}
+
+// 第一个参数props，第二个参数为上下文（包括slots, attrs, emit）
+// 所以你可以使用解构的写法，需要注意的是：attrs和slots是有状态的对象
+// 所以你应该以attrs.x 或 slots.xx 来使用，且它们是非响应式的。
+setup(props, { slots, attrs, emit }) {
+
+ // 注意：解构会丢失响应式
+  const { username, email } = props
+
+  console.log(username, email)
+
+  // 需要调用toRefs()解决响应式丢失问题
+  const { username, email } = toRefs(props)
+}
+
+```
+
+## 4. Provide / Inject
+
+**provide(name, value) name(String类型)**  
+**inject(name, 默认值(可选)) inject的name和provide的name要相对应**
+
+#### Parent.vue 父组件
+
+```
+<template>
+  <div>
+    <h1>App</h1>
+    <p>App的count：{{ count }}</p>
+    <p>App的用户名：{{ userInfo.username }}</p>
+    // 子孙组件
+    <Child />
+  </div>
+</template>
+
+<script>
+// 先引入provide
+import { provide } from 'vue'
+
+  setup() {
+
+    // 建议把provide的状态转换为响应式（ref / reactive）
+    const count = ref(100);
+
+    const userInfo = reactive({
+      username: "kyrie",
+      email: "123@qq.com",
+    });
+
+    // 如果需要修改provide里面的状态 推荐在父组件注入修改状态的方法
+    const changeCount = () => {
+      count.value++;
+    };
+
+    const changeUsername = () => {
+      userInfo.username = "wen";
+    };
+
+    // 为了避免inject组件修改provide的状态 使用readonly确保数据不被inject组件修改
+    provide("count", readonly(count));
+    provide("userInfo", readonly(userInfo));
+
+    provide("changeCount", changeCount);
+    provide("changeUsername", changeUsername);
+  }
+</script>
+```
+
+#### Child.vue 组件
+
+```
+<template>
+
+  <h2>Child</h2>
+  <p>inject的count:{{ count }}</p>
+  <p>inject的用户名：{{ userInfo.username }}</p>
+  <p>inject的邮箱：{{ userInfo.email }}</p>
+
+  // 调用inject的changeCount方法修改count
+  <button @click="changeCount">count++</button> &nbsp;
+  // 调用inject的changeUsername方法修改用户名
+  <button @click="changeUsername">修改用户名</button>
+
+</template>
+
+<script>
+import { inject } from "vue";
+export default {
+  setup(props, context) {
+    // 注入count 并设置count的默认值为0
+    const count = inject("count", 0);
+    // 注入userInfo 并设置userInfo的默认值为0
+    const userInfo = inject("userInfo", {});
+    // 注入修改count的方法
+    const changeCount = inject("changeCount");
+    // 注入修改userInfo的方法
+    const changeUsername = inject("changeUsername");
+    return {
+      count,
+      userInfo,
+      changeCount,
+      changeUsername,
+    };
+  },
+};
+</script>
+```
+
+以上就是Vue3**常用**的也算比较**核心**的API了，如果你有什么疑惑或者问题，欢迎在下方留言哦...

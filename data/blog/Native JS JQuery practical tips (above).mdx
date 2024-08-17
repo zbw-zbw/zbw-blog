@@ -1,0 +1,238 @@
+---
+title: '原生JS_JQuery实用技巧（上）'
+date: '2021-05-01'
+tags: ['JavaScript', 'JQuery']
+summary: '原生JS_JQuery实用技巧（上）'
+---
+
+## 选择所有子元素（排除最后一个）
+
+```css
+element:not(:last-child) {
+}
+```
+
+## 自定义原生input="file"的样式
+
+```js
+// 自定义上传样式
+<li id="upload-btn" class="default-image">
+    <img src="=" alt="">
+    <div>请上传图片</div>
+    <!-- 上传(隐藏原生的input) -->
+    <input type="file" id="upload" class="hide">
+</li>
+
+// 模拟原生input点击事件
+ $('#upload-btn').click(function() {
+    $('#upload').click();
+})
+```
+
+## attr()和prop()的区别
+
+- attr表示HTML文档节点的属性，prop表示JS对象的属性
+
+```html
+<!-- 这里的id、class、data-id均为div的attr -->
+<div id="demo" class="demo" data-id="1"></div>
+```
+
+```js
+// 这里的name、age均为obj对象的prop
+let obj = {
+  name: 'wen',
+  age: 18,
+}
+```
+
+- attr()底层依赖的是getAttribute()和setAttribute()两个方法，prop()依赖原生JS中的对象属性获取和设置方式。
+
+- attr()是jQuery 1.0版本就有的函数，prop()是jQuery 1.6版本新增的函数
+
+- 对于表单元素的checked、selected、disabled等属性，在jQuery 1.6之前，attr()获取这些属性的返回值为Boolean类型：如果被选中(或禁用)就返回true，否则返回false。
+
+- 但从1.6开始，使用attr()获取这些属性的返回值为String类型，如果被选中(或禁用)就返回checked、selected或disabled，否则(即元素节点没有该属性)返回undefined。
+
+- 在某些版本中，这些属性值表示文档加载时的初始状态值，即使之后更改了这些元素的选中(或禁用)状态，对应的属性值也不会发生改变。因为jQuery认为：attribute的checked、selected、disabled就是表示该属性初始状态的值，property的checked、selected、disabled才表示该属性实时状态的值(值为true或false)。
+
+- 因此，在jQuery 1.6及以后版本中，请使用prop()函数来设置或获取checked、selected、disabled等属性。对于其它能够用prop()实现的操作，也尽量使用prop()函数。
+
+## 原生ajax导出二进制文件（文件流）
+
+```js
+var url = `/export?start_time=${start_time}`
+var xhr = new XMLHttpRequest()
+// 也可以使用POST方式，根据接口
+xhr.open('GET', url, true)
+// 返回类型blob，XMLHttpRequest支持二进制流类型
+xhr.responseType = 'blob'
+xhr.onload = function () {
+  if (this.status === 200) {
+    //使用response作为返回，而非responseText
+    var blob = this.response
+    var reader = new FileReader()
+    // 转换为base64，可以直接放入a标签href
+    reader.readAsDataURL(blob)
+    reader.onload = function (e) {
+      // 转换完成，创建一个a标签用于下载
+      var a = document.createElement('a')
+      // 获取当前导出时间
+      var nowDate = format(new Date())
+      a.download = `文件名_${nowDate}.xlsx`
+      a.href = e.target.result
+      a.click()
+    }
+  }
+}
+xhr.send()
+```
+
+## jquery实现远程搜索（模仿iview）
+
+```js
+// -----------远程搜索 start------------
+
+// 远程搜索接口路径
+var searchUrls = ['/productManager/index']
+
+// 请求下拉列表
+function remoteSearch(val, idx) {
+  var that = $('#' + val + '')
+  $('#' + val + '-dropdown').show()
+  $('#select-' + val + '-id').val('')
+  var name = $(that).val().trim()
+  var data = { name }
+  $('#' + val + '-dropdown').html('<div class="search-loading">加载中...</div>')
+  $.ajax({
+    type: 'GET',
+    url: searchUrls[idx],
+    data,
+    success: function (res) {
+      var list = res.data || []
+      var str = ''
+      if (list.length) {
+        $.each(list, function (index, item) {
+          str += `
+                        <li class="select-item" data-id=${item.id} data-name=${item.name}>
+                        ${item.name}
+                        </li>`
+        })
+        $('#' + val + '-dropdown').html(str)
+      } else {
+        $('#' + val + '-dropdown').html('<div class="empty-search">无匹配数据</div>')
+      }
+    },
+    error: function (error) {
+      console.log(error)
+    },
+  })
+}
+
+// 防抖函数
+function debounce(fn, delay = 500) {
+  var timer = null
+  return function () {
+    var context = this
+    var args = arguments
+    timer && clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(context, args)
+    }, delay)
+  }
+}
+
+var debounceCategory = debounce(remoteSearch.bind(null, 'category', 0), 500)
+
+// 绑定input事件
+$('#category').on('input', debounceCategory)
+
+// 失焦隐藏下拉列表
+function hideDropdown(str) {
+  setTimeout(() => {
+    var id = $('#select-' + str + '-id').val()
+    if (!id) $('#' + str + '').val('')
+    $('#' + str + '-dropdown').hide()
+  }, 200)
+}
+
+// 失焦
+$('#category').blur(hideDropdown.bind(null, 'category'))
+
+// 选择下拉列表某一项
+function selectItem(that, str) {
+  var id = $(that).attr('data-id')
+  var name = $(that).attr('data-name')
+  $('#' + str + '').val(name)
+  $('#select-' + str + '-id').val(id)
+  $('#' + str + '-dropdown').hide()
+}
+
+// 选择
+$('#category-dropdown').on('click', '.select-item', function () {
+  selectItem($(this), 'category')
+})
+```
+
+## JQuery切换弹窗状态
+
+```js
+function toggleModal(str, bool) {
+  var modal = modalInfo[str]
+  bool ? $(modal).stop().fadeIn(300) : $(modal).stop().fadeOut(300)
+}
+```
+
+## JQuery导入文件
+
+```js
+// 点击导入
+function selectFile() {
+  $('#import-product-file').click()
+}
+
+// 导入文件
+$('#import-product-file').change(function () {
+  var fileItem = $(this)[0].files[0]
+  var fileName = fileItem.name
+  $('#import-file-name').html(fileName)
+})
+
+// 确认导入
+function submitImport() {
+  var fileItem = $('#import-product-file')[0].files[0]
+  if (!fileItem) return alert('请先选择文件！')
+  var formData = new FormData()
+  formData.append('file', fileItem)
+  $('#import-product-file').val('')
+  $.ajax({
+    type: 'POST',
+    url: '/import',
+    data: formData,
+    contentType: false,
+    processData: false,
+    dataType: 'json',
+    success: function (res) {
+      if (res.code === 0 && res.status) {
+        alert('导入成功！')
+        getList()
+      } else {
+        alert(res.msg || '导入失败！')
+      }
+    },
+    error: function (error) {
+      console.log(error)
+    },
+  })
+}
+```
+
+## JQuery实现监听input字数
+
+```js
+// 监听键盘输入事件(实时字数)
+$('#category-desc').on('input', function () {
+  var currentCount = $(this).val().length
+  $('#category-current-count').html(currentCount)
+})
+```

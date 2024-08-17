@@ -1,0 +1,225 @@
+---
+title: '手把手教你React hooks'
+date: '2021-03-19'
+tags: ['React']
+summary: '手把手教你React hooks'
+---
+
+## 1. useState
+
+##### useState接收一个参数（状态的初始值）
+
+##### useState返回值：一个数组 第一项：状态值 第二项：修改状态的方法
+
+```js
+import { useState } from 'react'
+
+function Demo1() {
+  // 定义count初始值
+  const initCount = 0
+
+  const [count, setCount] = useState(initCount)
+
+  const increment = () => {
+    setCount((count) => count + 1)
+    // 这里打印的count值并不是最新的 而是上一个count值 为什么？
+    console.log(count)
+  }
+  return (
+    <div>
+      <h3>{count}</h3>
+      <button onClick={() => setCount(count + 1)}>count++</button> &nbsp;
+      <button onClick={increment}>count++</button>
+    </div>
+  )
+}
+
+export default Demo1
+```
+
+##### 因为每次状态更新，React内部都会重新生成一个useState函数，一次更新对应一个useState函数，所以最新的一次更新只能拿到上次更新完的state值，如果要拿到最新的状态值需要借助下一个hook（useEffect），继续往下看...
+
+## 2. useEffect
+
+##### useEffect相当于class组件的三个生命周期，分别是：
+
+#### （componentDidMount、componentDidUpdate、componentWillUnmount）
+
+```js
+import { useEffect, useState } from 'react'
+
+function Demo2() {
+  const initCount = 0
+  const initName = 'kyrie'
+
+  const [count, setCount] = useState(initCount)
+  const [name, setName] = useState(initName)
+
+  const increment = () => {
+    setCount((count) => count + 1)
+  }
+
+  const changeName = () => {
+    setName('wen')
+  }
+
+  // componentDidUpdate - 调用时机：所有状态更新都会调用
+  useEffect(() => {
+    // console.log(count, "count");
+  })
+
+  // componentDidUpdate - 调用时机：依赖的状态更新才调用（也就是第二个参数传入的状态值（数组形式））
+  useEffect(() => {
+    // 只会在count值改变才调用
+    console.log(count, 'count') // 1 2 3 4 5 ... 这里就能拿到最新的count值
+  }, [count])
+
+  useEffect(() => {
+    // 只会在count值改变才调用
+    console.log(name, 'name') // wen name
+  }, [name])
+
+  useEffect(() => {
+    // count、name值改变都会调用 可传入多个状态
+    console.log(count, 'count') // 1 2 3 4 5 ...
+    console.log(name, 'name') // wen name
+  }, [count, name])
+
+  // componentDidMount - 调用时机：初始化的时候调用一次，后续不再调用
+  useEffect(() => {
+    console.log(count, 'count')
+  }, [])
+
+  // componentWillUnmount - 调用时机：组件销毁时调用
+  useEffect(() => {
+    console.log('useEffect')
+    // 返回的函数会在组件销毁时调用
+    return () => {
+      console.log('组件销毁了')
+    }
+  })
+
+  return (
+    <div>
+      <h3>{count}</h3>
+      <h3>{name}</h3>
+      <button onClick={increment}>count++</button> &nbsp;
+      <button onClick={changeName}>changeName</button>
+    </div>
+  )
+}
+
+export default Demo2
+```
+
+## 3. useRef
+
+##### useRef接收一个初始值 它的返回值是一个对象，里面有个current属性{current: ...}
+
+##### current属性的值就是实时的状态值
+
+```js
+import { useRef } from 'react'
+
+const inputRef = useRef(null)
+
+;<input ref={inputRef} type="text" /> & nbsp
+// 这里inputRef.current拿到的是input框的DOM元素
+;<button onClick={() => inputRef.current.focus()}>点击聚焦</button>
+```
+
+## 4. useContext
+
+##### useContext需要配合createContext使用
+
+```js
+import { useContext, createContext } from 'react'
+
+// 创建一个上下文
+const myContext = createContext()
+
+// 提供者 值是通过它来进行传递的
+const { Provider } = myContext
+
+const [theme, setTheme] = useState({ background: 'white', color: 'black' })
+
+function toggleTheme() {
+  theme.background === 'white'
+    ? setTheme({ background: 'black', color: 'white' })
+    : setTheme({ background: 'white', color: 'black' })
+}
+// 父组件
+// 这里把需要传给子孙组件的值放入value属性中
+;<Provider value={{ theme, toggleTheme }}>
+  <Child />
+</Provider>
+
+// 子组件
+// 子组件可以通过祖先组件的context拿到传递的值（包括方法）
+const { theme, toggleTheme } = useContext(myContext)
+
+return (
+  <div>
+    <h2>Child组件</h2>
+    <button
+      style={{ background: theme.background, color: theme.color }}
+      onClick={() => toggleTheme(theme)}
+    >
+      切换颜色
+    </button>
+  </div>
+)
+```
+
+## 5. useReducer（redux的思想）
+
+###### useReducer接收两个参数，第一个参数为reducer函数，第二个参数为初始状态
+
+##### useReducer返回值：第一项为store（即共享状态的集合）第二项dispatch（修改状态的方法）
+
+```js
+import { useReducer } from "react";
+
+// 定义一个reducer函数
+function reducer(state, action) {
+  switch (action.type) {
+    case "increment":
+      return {
+        num: state.num + action.count
+      };
+    case "decrement":
+      return {
+        num: state.num - action.count
+      };
+    default:
+      return state;
+  }
+}
+
+const [store, dispatch] = useReducer(reducer, { num: 100 });
+
+<h3>num：{store.num}</h3>
+<button onClick={() => dispatch({ type: "increment", count: 100 })}>+</button>
+<button onClick={() => dispatch({ type: "decrement", count: 100 })}>-</button>
+```
+
+## 6. 自定义hooks（进阶）
+
+```js
+// 自定义一个count++的hooks 方便复用 且hooks名字更加语义化
+function useCount(initCount) {
+  const [count, setCount] = useState(initCount);
+
+  return [
+    count,
+    () => {
+      setCount((count) => count + 1);
+    }
+  ];
+}
+
+const [count, addCount] = useCount(0);
+<button onClick={() => {addCount()}> + </button>
+```
+
+**本文属于基础内容，其实还有hooks的进阶使用，关于useEffect的进阶指南，后续我会单独写一遍文章供大家学习，相信大家看完这篇文章后，后续再看进阶指南的时候也会比较好理解...**

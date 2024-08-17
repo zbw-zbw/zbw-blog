@@ -1,0 +1,178 @@
+---
+title: 'useEffect进阶指南（下）'
+date: '2021-03-22'
+tags: ['React']
+summary: 'useEffect进阶指南（下）'
+---
+
+## React的内部更新机制？
+
+```
+<h1 class="name">我的名字是：Kyrie</h1>
+<h1 class="name">我的名字是：IRVING</h1>
+```
+
+###### React也跟vue有着Diff算法，它每次render只会更新与上一次渲染不同的节点和内容，所以上面的例子，React只需要这样做：
+
+`h1.innerText = Kyrie -> h1.innerText = IRVING`
+
+那useEffect呢？
+
+```
+function Demo() {
+  const initCount = 0
+  const [count, setCount] = useState(initCount)
+
+  // 当我们把count作为依赖传入时，count改变就会重新执行
+  useEffect(() => {
+    console.log('count的值为：', count)
+  }, [count])
+
+  return (
+    <div>
+      <h2>{count}</h2>
+      <button onClick={() => setCount(count + 1)}>count++</button>
+    </div>
+  )
+}
+```
+
+`所以useEffect的更新机制完成依靠我们传入的依赖，只要在useEffect里使用到的状态值都必须在依赖中声明，让React内部进行依赖更新。`
+
+`所以，当依赖的状态变得多起来的时候，难免会让我们在性能方面有所担心。`
+
+## useEffect传入依赖的正确方式？
+
+###### 现在有个需求：书写一个函数，每秒自动让count+1
+
+```
+function Demo() {
+  const initCount = 0
+  const [count, setCount] = useState(initCount)
+
+  useEffect(() => {
+   // 设定时器，每秒执行一次setCount
+    const timer = setInterval(() => {
+      setCount(count + 1)
+    }, 1000)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [])
+
+  return (
+    <div>
+      <h2>{count}</h2>
+      <button onClick={() => setCount(count + 1)}>count++</button>
+    </div>
+  )
+}
+```
+
+`上面的例子，我们把[]作为useEffect的依赖，就是说effect只会在组件挂载后执行一次。定时器只需要设定一个，每秒setInterval后帮我们把count + 1对吧，这不就能实现需求了吗`
+
+`看起来貌似没什么问题，但运行起来发现count只自增了一次就停住了，也就是useEffect只执行了一次，what？？？`
+
+`原因很简单，我们把[]作为依赖，React内部就会认为effect函数内没有依赖任何值，所以当useEffect第一次执行时，setCount(0 + 1) 此时count = 1，然后1s后，setCount（1 + 1），count = 2？ 不，React内部会自动忽略第二次及以后的每次更新，因为我们把[]作为依赖，就代表了effect只会执行一次，第二次开始，count一直都是1，这就导致了count变为1后就不增加了。`
+
+`那好，我们把count传入作为依赖`
+
+```
+useEffect(() => {
+   // 设定时器，每秒执行一次setCount
+    const timer = setInterval(() => {
+      setCount(count + 1)
+    }, 1000)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [count])
+```
+
+`运行之后发现，问题确实解决了，count成功的每秒自动自增，但这其实不是最好的解决方案，因为我们知道每当count值改变，就会触发render，每次都会生成一个新的useEffect，然后执行，重新生成一个定时器，虽然目的达到了，但这显然不是最优解，我们最好能避免每次都生成一个新的定时器，因为这样我们的定时器将毫无意义...`
+
+```
+useEffect(() => {
+   // 设定时器，每秒执行一次setCount
+    const timer = setInterval(() => {
+      setCount(count => count + 1)
+    }, 1000)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [])
+```
+
+`可以看到，我们把count从依赖中取出，然后在setCount（count => count + 1），这样做得目的是为了告诉React，我们只需要count+1，并不需要读取它的值，因为React内部肯定是知道当前count的值，这样effect内部就不依赖count了，useEffect只需执行一次即可，这也是setState的函数写法，函数的参数就是最新的状态值，如果不太了解这种写法的朋友可以去查一下资料，这里就不再过多阐述了...`
+
+## useEffect配合useReducer使用？
+
+`这就是useEffect究极使用技巧，用法及其广泛...还是使用上面的例子，让我们用useReducer改写一下`
+
+```
+function Demo() {
+  const initState = { count: 0 }
+  const [state, dispatch] = useReducer(reducer, initState)
+
+  function reducer(state, action) {
+    switch(action.type) {
+      case 'increment' :
+        return {count: state.count + 1}
+      default:
+        throw new Error('type不存在...')
+    }
+  }
+
+  useEffect(() => {
+   // 设定时器，每秒执行一次setCount
+    const timer = setInterval(() => {
+      dispatch({type: 'increment'})
+    }, 1000)
+
+    return () => {
+      clearInterval(timer)
+    }
+  }, [dispatch]) // 这里我们依赖了dispatch 其实可以省略
+
+  return (
+    <div>
+      <h2>{count}</h2>
+      <button onClick={() => setCount(count + 1)}>count++</button>
+    </div>
+  )
+}
+```
+
+`大家可能会问我，这种写法的好处是什么？其实，我们利用useReducer通过action来描述行为，实现状态和行为的分离，在多个依赖的时候这种写法的优势就能很好的体现出来。`
+
+`还有最后一个疑点：为什么dispatch可以省略？其实上面的例子，即使我们把dispatch从依赖中取出，也能正常运行，effect也只会执行一次。这么神奇？effect是怎么知道我们的行为是什么？其实，React内部会帮我们记住dispatch的各种行为（action），且能拿到最新的count，这一系列操作是React内部发生的，并不需要放在effect内。`
+
+## useMemo和useCallback（性能优化）？
+
+##### useCallback(缓存函数)
+
+```
+const memoizedSetCount = useCallback(
+  () => {
+    setCount(count + 1)
+  },
+  [count],
+);
+```
+
+`把内联回调函数及依赖项数组作为参数传入useCallback，它将返回该回调函数的缓存版本，该回调函数仅在某个依赖项改变时才会更新。`
+
+###### useMemo（缓存值：类似于Vue的计算属性）
+
+```
+const memoizedCount = useMemo(() => {
+  const doubleCount = count * 2
+}, [count]);
+```
+
+`把“创建”函数和依赖项数组作为参数传入useMemo，它仅会在某个依赖项改变时才重新计算缓存值。这种优化有助于避免在每次渲染时都进行高开销的计算。`
+
+###### 到这里，useEffect的进阶指南就介绍完了，要更好的运用React hooks 还得日常开发中的实战和积累，相信在往后的开发中，大家能更合理的使用hooks，也可以封装属于个人的hooks...大家加油，一起学习。
