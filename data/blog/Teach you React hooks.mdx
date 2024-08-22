@@ -114,18 +114,18 @@ export default Demo2
 
 ## 3. useRef
 
-##### useRef接收一个初始值 它的返回值是一个对象，里面有个current属性{current: ...}
+##### useRef接收一个初始值 它的返回值是一个对象，里面有个 `current` 属性
 
-##### current属性的值就是实时的状态值
+##### current 属性的值就是实时的状态值
 
 ```js
 import { useRef } from 'react'
 
 const inputRef = useRef(null)
 
-;<input ref={inputRef} type="text" /> & nbsp
+<input ref={inputRef} type="text" />
 // 这里inputRef.current拿到的是input框的DOM元素
-;<button onClick={() => inputRef.current.focus()}>点击聚焦</button>
+<button onClick={() => inputRef.current.focus()}>点击聚焦</button>
 ```
 
 ## 4. useContext
