@@ -7,7 +7,7 @@ summary: 'useEffect进阶指南（下）'
 
 ## React的内部更新机制？
 
-```
+```js
 <h1 class="name">我的名字是：Kyrie</h1>
 <h1 class="name">我的名字是：IRVING</h1>
 ```
@@ -18,7 +18,7 @@ summary: 'useEffect进阶指南（下）'
 
 那useEffect呢？
 
-```
+```js
 function Demo() {
   const initCount = 0
   const [count, setCount] = useState(initCount)
@@ -45,7 +45,7 @@ function Demo() {
 
 ###### 现在有个需求：书写一个函数，每秒自动让count+1
 
-```
+```js
 function Demo() {
   const initCount = 0
   const [count, setCount] = useState(initCount)
@@ -78,7 +78,7 @@ function Demo() {
 
 `那好，我们把count传入作为依赖`
 
-```
+```js
 useEffect(() => {
    // 设定时器，每秒执行一次setCount
     const timer = setInterval(() => {
@@ -93,7 +93,7 @@ useEffect(() => {
 
 `运行之后发现，问题确实解决了，count成功的每秒自动自增，但这其实不是最好的解决方案，因为我们知道每当count值改变，就会触发render，每次都会生成一个新的useEffect，然后执行，重新生成一个定时器，虽然目的达到了，但这显然不是最优解，我们最好能避免每次都生成一个新的定时器，因为这样我们的定时器将毫无意义...`
 
-```
+```js
 useEffect(() => {
    // 设定时器，每秒执行一次setCount
     const timer = setInterval(() => {
@@ -112,7 +112,7 @@ useEffect(() => {
 
 `这就是useEffect究极使用技巧，用法及其广泛...还是使用上面的例子，让我们用useReducer改写一下`
 
-```
+```js
 function Demo() {
   const initState = { count: 0 }
   const [state, dispatch] = useReducer(reducer, initState)
@@ -154,7 +154,7 @@ function Demo() {
 
 ##### useCallback(缓存函数)
 
-```
+```js
 const memoizedSetCount = useCallback(
   () => {
     setCount(count + 1)
@@ -167,7 +167,7 @@ const memoizedSetCount = useCallback(
 
 ###### useMemo（缓存值：类似于Vue的计算属性）
 
-```
+```js
 const memoizedCount = useMemo(() => {
   const doubleCount = count * 2
 }, [count]);

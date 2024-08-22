@@ -42,7 +42,7 @@ console.log(count.value) // 8
 
 ### ①. 监听基本数据类型：
 
-```
+```js
 import { ref, watch, reactive } from 'vue'
 
 setup() {
@@ -79,7 +79,7 @@ setup() {
 
 ### ②. 监听引用数据类型：
 
-```
+```js
 import { watch, reactive } from 'vue'
 
 setup() {
@@ -96,7 +96,7 @@ setup() {
 
 ##### 不出意外，vue3 的 watch 同样支持 deep、immediate 属性，只是用法有所改变
 
-```
+```js
 const userInfo = reactive({
   username: 'kyrie irving',
   email: '123@qq.com',
@@ -121,7 +121,7 @@ userInfo.like.isBasketball = false // 打印日志: false, false
 
 ##### 原因：watch 的返回值是：当前状态（newVal）和上一个状态的引用（oldVal）
 
-```
+```js
 // 正确写法（对引用数据类型进行深拷贝）
 (这里使用vue官方推荐的lodash深拷贝方法，当然你也可以手写（手动狗头）
 import _ from 'lodash'
@@ -139,7 +139,7 @@ userInfo.like.isBasketball = false // 打印日志: false, true
 
 ##### 假设我们要开发一个 todoList， 那么在 vue2 的选项式（options）API 中，代码大致长这样：
 
-```
+```js
 export default {
   components: ['Header', 'List', 'Footer'],
 
@@ -183,7 +183,7 @@ export default {
 
 ##### 生命周期（vue3将不再需要：beforeCreate、created，原因看下文）
 
-```
+```js
 // vue3中为了性能，很多API（方法）都支持Tree Shaking
 // 所以需要从vue中显式导入，生命周期也不例外
 import {
@@ -216,7 +216,7 @@ setup(props, context) {
 
 #### props（响应式引用）
 
-```
+```js
 import { toRefs } from 'vue'
 
 // 接收跟vue2一样 可进行类型校验和默认值设置
@@ -249,12 +249,13 @@ setup(props, { slots, attrs, emit }) {
 
 ## 4. Provide / Inject
 
-**provide(name, value) name(String类型)**  
+**provide(name, value) name(String类型)**
+
 **inject(name, 默认值(可选)) inject的name和provide的name要相对应**
 
 #### Parent.vue 父组件
 
-```
+```js
 <template>
   <div>
     <h1>App</h1>
@@ -300,7 +301,7 @@ import { provide } from 'vue'
 
 #### Child.vue 组件
 
-```
+```js
 <template>
 
   <h2>Child</h2>

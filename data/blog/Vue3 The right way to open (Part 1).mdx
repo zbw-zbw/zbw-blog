@@ -50,7 +50,7 @@ export default {
 
 ### vue.prototype 替换成 config.globalProperties
 
-```
+```js
 // main.js 全局定义
 
 import { createApp } from "vue";
@@ -87,7 +87,7 @@ onMounted(() => {
 
 ## 3. Vue3 自定义指令（全局）
 
-```
+```js
 import { createApp } from "vue";
 import App from "./App.vue";
 
@@ -121,7 +121,7 @@ setup() {
 
 ### vue3新增了$emit的options（配置）emits: [] / {} 可用于对传给父组件的值进行校验
 
-```
+```js
 // Child组件
 
 // 注意：这里$emit的事件名不要写驼峰形式，html无法解析驼峰
@@ -157,7 +157,7 @@ setup() {
 
 ## 5. Vue3 兄弟组件通信（mitt）
 
-```
+```js
 // emit.js
 import mitt from "mitt";
 export const emitter = mitt();
@@ -205,7 +205,7 @@ emitter.on("*", (type, val) => {
 
 ## 6. Provide / Inject的使用（跟vue2类似）
 
-```
+```js
 // main.js
 
 app.provide("userInfo", {
